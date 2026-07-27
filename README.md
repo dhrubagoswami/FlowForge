@@ -18,6 +18,8 @@ idempotency, worker scaling), not just describing them.
 The dashboard UI is built and running against mock data — no backend yet.
 See [Roadmap](#roadmap) for what's next.
 
+**Live:** [flowforge-zeta-ten.vercel.app](https://flowforge-zeta-ten.vercel.app)
+
 ## Screenshots
 
 **Fleet overview** — runs, success rate, queue depth, and worker load at a glance.
