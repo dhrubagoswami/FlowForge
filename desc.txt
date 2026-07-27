@@ -1,0 +1,18 @@
+Project 2 — FlowForge
+
+Distributed Job Scheduler with AI-Assisted Config
+
+Pitch: A lightweight Zapier/GitHub-Actions-style platform — users define scheduled jobs or webhook-triggered workflows, a fleet of worker processes executes them, and a live dashboard streams status and logs. An AI assistant lets users describe a job in plain English ("scrape this page daily at 9am, alert me after 3 failures") and it generates the structured config; another AI feature summarizes failure patterns from raw logs instead of making the user read them. This is the project meant to prove "system design" is more than a buzzword on the resume — it forces building the actual patterns interviewers probe (queues, retries, idempotency, worker scaling), not just describing them.
+
+Stack:
+
+Backend: Node.js + TypeScript, Redis-backed queue driving a worker fleet.
+Execution: workers run scheduled/webhook-triggered jobs with retries and idempotency; live status/log dashboard.
+AI: plain-English job definitions translated into structured configs via OpenRouter; LLM-generated summaries of failure patterns from raw logs.
+Containerization: Docker; workers horizontally scalable behind the queue.
+
+Resume bullets this needs to eventually support (already drafted, to be made true):
+
+Distributed job scheduling and workflow platform (Node.js, TypeScript, Redis-backed queue) — worker fleet executing scheduled and webhook-triggered jobs with retries, idempotency, and a live status/log dashboard.
+AI-assisted configuration: plain-English job definitions translated into structured configs, plus LLM-generated summaries of failure patterns from raw logs, via OpenRouter.
+Containerized with Docker; horizontally scalable workers behind the queue.
