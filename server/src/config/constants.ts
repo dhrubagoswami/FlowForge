@@ -9,3 +9,6 @@ export const MAX_PAGE_LIMIT = 100;
 
 export const STATS_ACTIVITY_WINDOW_HOURS = 24;
 export const FAILURE_CLUSTER_DEFAULT_WINDOW_HOURS = 24;
+
+export const SSE_HEARTBEAT_MS = 20000;
+export const STATS_TICK_INTERVAL_MS = 3000;
