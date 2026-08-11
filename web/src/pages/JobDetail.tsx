@@ -1,8 +1,15 @@
 import type { JobDetailData, LogLine, RunRow } from '../types';
+import { CardEmpty, CardError, CardSkeleton } from '../components/CardStates';
 
 export function JobDetail(props: {
-  job: JobDetailData;
+  job: JobDetailData | null;
+  jobLoading: boolean;
+  jobError: string | null;
+  onRetryJob: () => void;
   jobRuns: RunRow[];
+  jobRunsLoading: boolean;
+  jobRunsError: string | null;
+  onRetryJobRuns: () => void;
   guarantees: { k: string; v: string }[];
   logs: LogLine[];
   live: boolean;
@@ -14,7 +21,19 @@ export function JobDetail(props: {
   onGoJobs: () => void;
   onGoFailures: () => void;
 }) {
-  const { job, jobRuns, guarantees, logs, liveLabel, logCount, onToggleLive, onClearLogs, onRunNow, onGoJobs, onGoFailures } = props;
+  const { job, jobLoading, jobError, onRetryJob, jobRuns, jobRunsLoading, jobRunsError, onRetryJobRuns, guarantees, logs, liveLabel, logCount, onToggleLive, onClearLogs, onRunNow, onGoJobs, onGoFailures } = props;
+
+  if (jobLoading || jobError || !job) {
+    return (
+      <div>
+        <button className="btn btn-ghost" style={{ marginBottom: 10, fontSize: 13 }} onClick={onGoJobs}>← All jobs</button>
+        <div className="card" style={{ padding: '20px 22px' }}>
+          {jobError ? <CardError message={jobError} onRetry={onRetryJob} /> : <CardSkeleton lines={3} />}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <button className="btn btn-ghost" style={{ marginBottom: 10, fontSize: 13 }} onClick={onGoJobs}>← All jobs</button>
@@ -37,21 +56,29 @@ export function JobDetail(props: {
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, marginBottom: 18 }}>
         <div className="card" style={{ padding: '20px 22px', gap: 12 }}>
           <h4 style={{ margin: 0 }}>Run history</h4>
-          <table className="table">
-            <thead><tr><th>Run</th><th>Started</th><th>Attempts</th><th>Worker</th><th>Duration</th><th>Status</th></tr></thead>
-            <tbody>
-              {jobRuns.map(r => (
-                <tr key={r.id}>
-                  <td style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12.5, opacity: 0.7 }}>{r.id}</td>
-                  <td className="text-muted" style={{ fontSize: 13 }}>{r.started}</td>
-                  <td>{r.attempts}</td>
-                  <td style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12.5, opacity: 0.7 }}>{r.worker}</td>
-                  <td style={{ fontSize: 13 }}>{r.duration}</td>
-                  <td><span className={`tag ${r.tagClass}`}>{r.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {jobRunsLoading ? (
+            <CardSkeleton lines={6} />
+          ) : jobRunsError ? (
+            <CardError message={jobRunsError} onRetry={onRetryJobRuns} />
+          ) : jobRuns.length === 0 ? (
+            <CardEmpty message="No runs yet for this job." />
+          ) : (
+            <table className="table">
+              <thead><tr><th>Run</th><th>Started</th><th>Attempts</th><th>Worker</th><th>Duration</th><th>Status</th></tr></thead>
+              <tbody>
+                {jobRuns.map(r => (
+                  <tr key={r.id}>
+                    <td style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12.5, opacity: 0.7 }}>{r.id}</td>
+                    <td className="text-muted" style={{ fontSize: 13 }}>{r.started}</td>
+                    <td>{r.attempts}</td>
+                    <td style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12.5, opacity: 0.7 }}>{r.worker}</td>
+                    <td style={{ fontSize: 13 }}>{r.duration}</td>
+                    <td><span className={`tag ${r.tagClass}`}>{r.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -87,16 +114,20 @@ export function JobDetail(props: {
             <button className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 12px' }} onClick={onClearLogs}>Clear</button>
           </div>
         </div>
-        <div style={{ background: '#17140f', borderRadius: 20, padding: '16px 18px', height: 260, overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
-          <div>
-            {logs.map((l, i) => (
-              <div style={{ display: 'flex', gap: 12, fontFamily: 'ui-monospace,monospace', fontSize: 12.5, lineHeight: 1.75, animation: 'ffin .18s ease-out' }} key={i}>
-                <span style={{ color: '#6f6555', flex: 'none' }}>{l.t}</span>
-                <span style={{ flex: 'none', width: 52, color: l.color }}>{l.level}</span>
-                <span style={{ color: '#e2d7c4' }}>{l.msg}</span>
-              </div>
-            ))}
-          </div>
+        <div style={{ background: '#17140f', borderRadius: 20, padding: '16px 18px', height: 260, overflow: 'hidden', display: 'flex', flexDirection: logs.length === 0 ? 'column' : 'column-reverse' }}>
+          {logs.length === 0 ? (
+            <span style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12.5, color: '#8f8878' }}>Waiting for log lines from the most recent run…</span>
+          ) : (
+            <div>
+              {logs.map((l, i) => (
+                <div style={{ display: 'flex', gap: 12, fontFamily: 'ui-monospace,monospace', fontSize: 12.5, lineHeight: 1.75, animation: 'ffin .18s ease-out' }} key={i}>
+                  <span style={{ color: '#6f6555', flex: 'none' }}>{l.t}</span>
+                  <span style={{ flex: 'none', width: 52, color: l.color }}>{l.level}</span>
+                  <span style={{ color: '#e2d7c4' }}>{l.msg}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

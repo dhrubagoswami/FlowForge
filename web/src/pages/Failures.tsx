@@ -1,6 +1,11 @@
+import { CardEmpty, CardError, CardSkeleton } from '../components/CardStates';
+
 export function Failures(props: {
   findings: string[];
   clusters: { title: string; sample: string; count: number; pct: string }[];
+  clustersLoading: boolean;
+  clustersError: string | null;
+  onRetryClusters: () => void;
   showRaw: boolean;
   showFixes: boolean;
   rawLog: string;
@@ -10,7 +15,7 @@ export function Failures(props: {
   fixes: { n: string; title: string; detail: string }[];
   onGoComposer: () => void;
 }) {
-  const { findings, clusters, showRaw, showFixes, rawLog, rawTitle, rawLabel, onToggleRaw, fixes, onGoComposer } = props;
+  const { findings, clusters, clustersLoading, clustersError, onRetryClusters, showRaw, showFixes, rawLog, rawTitle, rawLabel, onToggleRaw, fixes, onGoComposer } = props;
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24 }}>
@@ -39,18 +44,26 @@ export function Failures(props: {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         <div className="card" style={{ padding: '20px 22px', gap: 12 }}>
           <h4 style={{ margin: 0 }}>Clusters</h4>
-          {clusters.map(c => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 8%, transparent)' }} key={c.title}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, marginBottom: 3 }}>{c.title}</div>
-                <div className="text-muted" style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sample}</div>
+          {clustersLoading ? (
+            <CardSkeleton lines={4} />
+          ) : clustersError ? (
+            <CardError message={clustersError} onRetry={onRetryClusters} />
+          ) : clusters.length === 0 ? (
+            <CardEmpty message="No failures clustered in this window." />
+          ) : (
+            clusters.map(c => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 8%, transparent)' }} key={c.title}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, marginBottom: 3 }}>{c.title}</div>
+                  <div className="text-muted" style={{ fontSize: 12, fontFamily: 'ui-monospace,monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sample}</div>
+                </div>
+                <span style={{ width: 76, height: 8, borderRadius: 999, background: 'color-mix(in srgb, var(--color-text) 10%, transparent)', overflow: 'hidden', flex: 'none' }}>
+                  <span style={{ display: 'block', height: '100%', background: 'var(--color-accent)', width: c.pct }} />
+                </span>
+                <span style={{ fontSize: 13, width: 44, textAlign: 'right', flex: 'none' }}>{c.count}</span>
               </div>
-              <span style={{ width: 76, height: 8, borderRadius: 999, background: 'color-mix(in srgb, var(--color-text) 10%, transparent)', overflow: 'hidden', flex: 'none' }}>
-                <span style={{ display: 'block', height: '100%', background: 'var(--color-accent)', width: c.pct }} />
-              </span>
-              <span style={{ fontSize: 13, width: 44, textAlign: 'right', flex: 'none' }}>{c.count}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <div className="card" style={{ padding: '20px 22px', gap: 12 }}>
