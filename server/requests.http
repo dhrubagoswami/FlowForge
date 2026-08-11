@@ -1,0 +1,65 @@
+### FlowForge API — M3 read endpoints
+### Works with the VS Code "REST Client" extension, or copy each URL into curl.
+### Start the server first: pnpm --filter=@flowforge/server dev
+
+@baseUrl = http://localhost:3001
+
+### Health — should show db.ok true once DATABASE_URL is set and migrated/seeded; redis.ok is false until M5 by design.
+GET {{baseUrl}}/api/health
+
+### Stats overview — the four Overview counters, 24 hourly activity buckets, top 5 workers by inflight, 10 most recent runs.
+GET {{baseUrl}}/api/stats/overview
+
+### All jobs
+GET {{baseUrl}}/api/jobs
+
+### Jobs filtered by status
+GET {{baseUrl}}/api/jobs?status=active
+
+###
+GET {{baseUrl}}/api/jobs?status=paused
+
+### One job, with its config (should be churn-model-retrain, status paused)
+GET {{baseUrl}}/api/jobs/churn-model-retrain
+
+### A job that doesn't exist — expect 404 JOB_NOT_FOUND
+GET {{baseUrl}}/api/jobs/does-not-exist
+
+### Run history for one job, first page
+GET {{baseUrl}}/api/jobs/docs-embedding-index/runs?limit=10
+
+### Run history for one job, second page (paste a nextCursor value from the previous response)
+# GET {{baseUrl}}/api/jobs/docs-embedding-index/runs?limit=10&cursor=PASTE_NEXT_CURSOR_HERE
+
+### A malformed cursor — expect a clean 400 INVALID_CURSOR, not a crash
+GET {{baseUrl}}/api/jobs/docs-embedding-index/runs?cursor=not-a-real-cursor
+
+### Recent runs across all jobs
+GET {{baseUrl}}/api/runs?limit=20
+
+### Recent runs filtered by status
+GET {{baseUrl}}/api/runs?status=dead_letter
+
+### One run — paste a real run id from a previous response
+# GET {{baseUrl}}/api/runs/PASTE_RUN_ID_HERE
+
+### A run that doesn't exist — expect 404 RUN_NOT_FOUND
+GET {{baseUrl}}/api/runs/00000000-0000-0000-0000-000000000000
+
+### Log lines for a run — paste a real run id
+# GET {{baseUrl}}/api/runs/PASTE_RUN_ID_HERE/logs
+
+### Worker fleet — 8 workers, one (worker-08) should read status "offline" (stale heartbeat)
+GET {{baseUrl}}/api/workers
+
+### Failure clusters, default 24h window — should show docs-embedding-index's rate_limit cluster prominently
+GET {{baseUrl}}/api/failures/clusters
+
+### Failure clusters, wider window to catch more of the 30-day seed history
+GET {{baseUrl}}/api/failures/clusters?windowHours=720
+
+### Failure clusters scoped to one job
+GET {{baseUrl}}/api/failures/clusters?jobId=docs-embedding-index
+
+### An unknown route — expect 404 NOT_FOUND
+GET {{baseUrl}}/api/this-route-does-not-exist
