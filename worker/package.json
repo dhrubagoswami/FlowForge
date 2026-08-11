@@ -1,0 +1,28 @@
+{
+  "name": "@flowforge/worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "lint": "oxlint",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@flowforge/shared": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "postgres": "^3.4.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.0",
+    "zod": "^4.0.0",
+    "pino": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "typescript": "~6.0.2",
+    "oxlint": "^1.71.0",
+    "vitest": "^3.0.0",
+    "tsx": "^4.19.0"
+  }
+}

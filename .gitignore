@@ -30,3 +30,6 @@ Thumbs.db
 # Design project source pulled from claude.ai/design - internal design-tool
 # artifacts, not meant for the public repo
 flowforge-distributed-job-scheduler/
+
+# Internal build spec - not meant for the public repo
+PHASE2.md
