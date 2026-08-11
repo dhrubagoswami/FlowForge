@@ -1,0 +1,37 @@
+{
+  "name": "@flowforge/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "lint": "oxlint",
+    "test": "vitest run --passWithNoTests",
+    "db:migrate": "drizzle-kit migrate",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "tsx src/db/seed/seed.ts",
+    "db:touch-workers": "tsx src/db/seed/touch-workers.ts"
+  },
+  "dependencies": {
+    "@flowforge/shared": "workspace:*",
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^10.0.0",
+    "drizzle-orm": "^0.44.0",
+    "postgres": "^3.4.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.0",
+    "zod": "^4.0.0",
+    "cron-parser": "^5.0.0",
+    "pino": "^9.0.0",
+    "@google/genai": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "typescript": "~6.0.2",
+    "oxlint": "^1.71.0",
+    "vitest": "^3.0.0",
+    "tsx": "^4.19.0",
+    "drizzle-kit": "^0.31.0"
+  }
+}
