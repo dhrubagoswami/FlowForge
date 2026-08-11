@@ -1,28 +1,32 @@
-// Liveness check: confirms the database is reachable. Redis isn't wired until the queue exists at M5.
+// Liveness check: confirms the database and Redis are both reachable.
 import { sql } from 'drizzle-orm';
-import { REDIS_NOT_WIRED_REASON } from '../config/constants.ts';
 import { db } from '../db/client.ts';
+import { redisConnection } from '../queue/connection.ts';
 
 export interface HealthStatus {
   ok: boolean;
   db: { ok: boolean; error?: string };
-  redis: { ok: boolean; reason: string };
+  redis: { ok: boolean; error?: string };
 }
 
-// TODO(M5): replace this stub with a real Redis ping once queue/connection.ts exists.
 export async function getHealthStatus(): Promise<HealthStatus> {
-  const dbCheck = await checkDatabase();
-  return {
-    ok: dbCheck.ok,
-    db: dbCheck,
-    redis: { ok: false, reason: REDIS_NOT_WIRED_REASON },
-  };
+  const [dbCheck, redisCheck] = await Promise.all([checkDatabase(), checkRedis()]);
+  return { ok: dbCheck.ok && redisCheck.ok, db: dbCheck, redis: redisCheck };
 }
 
 async function checkDatabase(): Promise<{ ok: boolean; error?: string }> {
   try {
     await db.execute(sql`select 1`);
     return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+async function checkRedis(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const reply = await redisConnection.ping();
+    return { ok: reply === 'PONG' };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'unknown error' };
   }

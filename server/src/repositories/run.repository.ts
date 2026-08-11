@@ -10,6 +10,34 @@ export interface RunRowWithJobName extends RunRow {
   jobName: string;
 }
 
+export interface NewRunParams {
+  jobId: string;
+  triggerSource: RunRow['triggerSource'];
+  maxAttempts: number;
+  idempotencyKey: string;
+  scheduledAt: Date | null;
+}
+
+export async function insertQueuedRun(params: NewRunParams): Promise<RunRow> {
+  const now = new Date();
+  const [row] = await db
+    .insert(runsTable)
+    .values({
+      jobId: params.jobId,
+      status: 'queued',
+      triggerSource: params.triggerSource,
+      attempt: 1,
+      maxAttempts: params.maxAttempts,
+      queuedAt: now,
+      idempotencyKey: params.idempotencyKey,
+      scheduledAt: params.scheduledAt,
+    })
+    .returning();
+
+  if (!row) throw new Error('insertQueuedRun: insert returned no row');
+  return row;
+}
+
 function keysetWhereClause(cursor: RunCursor | null) {
   if (!cursor) return undefined;
   return or(lt(runsTable.queuedAt, cursor.queuedAt), and(eq(runsTable.queuedAt, cursor.queuedAt), lt(runsTable.id, cursor.id)));

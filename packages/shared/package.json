@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "zod": "^4.0.0",
-    "cron-parser": "^5.0.0"
+    "cron-parser": "^5.0.0",
+    "drizzle-orm": "^0.44.0"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
