@@ -10,3 +10,4 @@ export type * from './types/job.types.ts';
 export type * from './types/run.types.ts';
 export type * from './types/worker.types.ts';
 export * from './db/schema/index.ts';
+export * from './rules/job-health.rule.ts';

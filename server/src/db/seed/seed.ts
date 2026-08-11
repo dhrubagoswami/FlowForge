@@ -2,7 +2,7 @@
 import { jobConfigSchema } from '@flowforge/shared';
 import { db } from '../client.ts';
 import { aiCacheTable, idempotencyTable, jobsTable, runLogsTable, runsTable, workersTable } from '../schema/index.ts';
-import { deriveJobHealth } from '../../services/job.service.ts';
+import { deriveJobHealth } from '@flowforge/shared';
 import { SEED_JOBS } from './seed-jobs.ts';
 import { makeRng } from './seed-random.ts';
 import { buildRunsForJob } from './seed-runs.ts';

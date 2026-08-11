@@ -1,6 +1,6 @@
 // Aggregate queries for the Overview stats — every number computed in SQL, never by pulling rows into Node and reducing them.
+import { SUCCESS_RATE_COUNTED_STATUSES, SUCCESS_RATE_SUCCESS_STATUSES } from '@flowforge/shared';
 import { and, gte, inArray, sql } from 'drizzle-orm';
-import { SUCCESS_RATE_COUNTED_STATUSES, SUCCESS_RATE_SUCCESS_STATUSES } from '../config/constants.ts';
 import { db } from '../db/client.ts';
 import { runsTable, workersTable } from '../db/schema/index.ts';
 
