@@ -16,13 +16,16 @@ function hasOnlyKnownTemplateTokens(template: string): boolean {
   return true;
 }
 
-const triggerSchema = z
-  .object({
-    type: triggerTypeSchema,
-    expr: z.string().min(1).optional(),
-    tz: z.string().min(1).default('UTC'),
-  })
-  .superRefine((trigger, ctx) => {
+// The bare shape, exported separately so callers that need a partial version (PATCH's deep-partial
+// update schema) can build one — zod v4 refuses .partial() on a schema carrying a refinement, since
+// partial-ing the shape can invalidate the refinement's own assumptions.
+export const triggerShape = z.object({
+  type: triggerTypeSchema,
+  expr: z.string().min(1).optional(),
+  tz: z.string().min(1).default('UTC'),
+});
+
+export const triggerSchema = triggerShape.superRefine((trigger, ctx) => {
     if (trigger.type !== 'cron') return;
     if (!trigger.expr) {
       ctx.addIssue({ code: 'custom', path: ['expr'], message: 'expr is required when trigger.type is "cron"' });
@@ -35,18 +38,18 @@ const triggerSchema = z
     }
   });
 
-const taskSchema = z.object({
+export const taskSchema = z.object({
   type: taskTypeSchema,
   input: z.record(z.string(), z.unknown()),
 });
 
-const retrySchema = z.object({
+export const retrySchema = z.object({
   attempts: z.number().int().min(1).max(10),
   backoff: retryBackoffSchema,
   baseMs: z.number().int().min(1000).max(600000),
 });
 
-const idempotencySchema = z.object({
+export const idempotencySchema = z.object({
   keyTemplate: z
     .string()
     .min(1)
@@ -56,7 +59,7 @@ const idempotencySchema = z.object({
   ttlSeconds: z.number().int().min(60).max(604800),
 });
 
-const alertSchema = z.object({
+export const alertSchema = z.object({
   afterConsecutiveFailures: z.number().int().min(1).max(20),
   channel: z.string().min(1).optional(),
 });

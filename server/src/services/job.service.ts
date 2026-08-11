@@ -1,34 +1,17 @@
-// Business rules for jobs: health derivation, schedule labelling, next-run computation, and assembling the API-facing job shapes from repository rows.
-import type { JobConfig, JobDetail, JobHealth, JobSummary, RunStatus } from '@flowforge/shared';
-import {
-  JOB_HEALTH_DEGRADED_THRESHOLD,
-  JOB_HEALTH_FAILING_THRESHOLD,
-  JOB_HEALTH_MIN_SAMPLE_SIZE,
-  JOB_HEALTH_SAMPLE_SIZE,
-  SUCCESS_RATE_COUNTED_STATUSES,
-  SUCCESS_RATE_SUCCESS_STATUSES,
-} from '../config/constants.ts';
+// Business rules for jobs: schedule labelling, next-run computation, create/update/pause/resume/
+// delete, and assembling the API-facing job shapes from repository rows. Health derivation itself
+// lives in @flowforge/shared (job-health.rule.ts).
+import { deriveJobHealth, jobConfigSchema, JOB_HEALTH_SAMPLE_SIZE, SUCCESS_RATE_COUNTED_STATUSES, SUCCESS_RATE_SUCCESS_STATUSES } from '@flowforge/shared';
+import type { JobConfig, JobDetail, JobSummary, RunStatus, UpdateJobRequest } from '@flowforge/shared';
 import { AppError } from '../lib/app-error.ts';
 import { cronToLabel } from '../lib/cron-label.util.ts';
 import { nextCronOccurrence } from '../lib/cron-next-run.util.ts';
-import { findAllJobs, findJobById, type JobRow } from '../repositories/job.repository.ts';
+import { findAllJobs, findJobById, insertJob, softDeleteJob, updateJob as updateJobRow, type JobRow, type NewJobRow } from '../repositories/job.repository.ts';
 import { findLastNRunStatusesByJobId, findRunsByJobId } from '../repositories/run.repository.ts';
+import { reconcileJob } from '../queue/scheduler.ts';
 
 const SUCCESS_STATUSES: ReadonlySet<RunStatus> = new Set(SUCCESS_RATE_SUCCESS_STATUSES);
 const COUNTED_STATUSES: ReadonlySet<RunStatus> = new Set(SUCCESS_RATE_COUNTED_STATUSES);
-
-/** The §5 health rule: derived from a job's most recent run outcomes. Used by both the seed script and the read API so there is exactly one implementation. */
-export function deriveJobHealth(status: 'active' | 'paused', recentStatusesNewestFirst: RunStatus[]): JobHealth {
-  if (status === 'paused') return 'paused';
-
-  const counted = recentStatusesNewestFirst.filter((s) => COUNTED_STATUSES.has(s)).slice(0, JOB_HEALTH_SAMPLE_SIZE);
-  if (counted.length < JOB_HEALTH_MIN_SAMPLE_SIZE) return 'healthy';
-
-  const successRate = counted.filter((s) => SUCCESS_STATUSES.has(s)).length / counted.length;
-  if (successRate < JOB_HEALTH_FAILING_THRESHOLD) return 'failing';
-  if (successRate < JOB_HEALTH_DEGRADED_THRESHOLD) return 'degraded';
-  return 'healthy';
-}
 
 function computeScheduleFields(job: JobRow): { schedLabel: string; nextRunAt: string | null } {
   if (job.triggerType === 'webhook') return { schedLabel: 'On delivery', nextRunAt: null };
@@ -92,4 +75,100 @@ export async function getJobDetail(id: string): Promise<JobDetail> {
   }
   const summary = await toJobSummary(job);
   return { ...summary, config: toJobConfig(job) };
+}
+
+function fromJobConfig(config: JobConfig, createdBy: string): NewJobRow {
+  return {
+    id: config.name,
+    name: config.name,
+    description: config.description ?? null,
+    triggerType: config.trigger.type,
+    cronExpr: config.trigger.expr ?? null,
+    timezone: config.trigger.tz,
+    taskType: config.task.type,
+    taskInput: config.task.input,
+    timeoutMs: config.timeoutMs,
+    retryAttempts: config.retry.attempts,
+    retryBackoff: config.retry.backoff,
+    retryBaseMs: config.retry.baseMs,
+    idempotencyKeyTemplate: config.idempotency.keyTemplate,
+    idempotencyTtlSeconds: config.idempotency.ttlSeconds,
+    alertAfterConsecutiveFailures: config.alert.afterConsecutiveFailures,
+    alertChannel: config.alert.channel ?? null,
+    createdBy,
+  };
+}
+
+/** Deep-merges an UpdateJobRequest patch onto an existing job's config — only fields present in the patch (at any nesting level) override the current value. */
+function mergeJobConfig(current: JobConfig, patch: UpdateJobRequest): JobConfig {
+  return {
+    name: current.name,
+    description: patch.description ?? current.description,
+    trigger: { ...current.trigger, ...patch.trigger },
+    task: { ...current.task, ...patch.task },
+    timeoutMs: patch.timeoutMs ?? current.timeoutMs,
+    retry: { ...current.retry, ...patch.retry },
+    idempotency: { ...current.idempotency, ...patch.idempotency },
+    alert: { ...current.alert, ...patch.alert },
+  };
+}
+
+export async function createJob(config: JobConfig): Promise<JobDetail> {
+  const existing = await findJobById(config.name);
+  if (existing) {
+    throw new AppError({ code: 'JOB_ALREADY_EXISTS', message: `A job with id "${config.name}" already exists.`, statusCode: 409 });
+  }
+
+  const row = await insertJob(fromJobConfig(config, 'user'));
+  await reconcileJob(row);
+  return getJobDetail(row.id);
+}
+
+export async function updateJob(id: string, patch: UpdateJobRequest): Promise<JobDetail> {
+  const existing = await findJobById(id);
+  if (!existing) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+
+  const mergedConfig = mergeJobConfig(toJobConfig(existing), patch);
+  const validated = jobConfigSchema.parse({ ...mergedConfig, name: existing.id });
+
+  const row = await updateJobRow(id, fromJobConfig(validated, existing.createdBy));
+  if (!row) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+  await reconcileJob(row);
+  return getJobDetail(row.id);
+}
+
+async function setJobStatus(id: string, status: 'active' | 'paused'): Promise<JobDetail> {
+  const existing = await findJobById(id);
+  if (!existing) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+
+  const row = await updateJobRow(id, { status });
+  if (!row) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+  await reconcileJob(row);
+  return getJobDetail(row.id);
+}
+
+export const pauseJob = (id: string): Promise<JobDetail> => setJobStatus(id, 'paused');
+export const resumeJob = (id: string): Promise<JobDetail> => setJobStatus(id, 'active');
+
+export async function deleteJob(id: string): Promise<void> {
+  const existing = await findJobById(id);
+  if (!existing) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+
+  const row = await softDeleteJob(id);
+  if (!row) {
+    throw new AppError({ code: 'JOB_NOT_FOUND', message: `No job with id "${id}" was found.`, statusCode: 404 });
+  }
+  // Existing queued/running runs finish naturally — the job row itself is a tombstone
+  // (deleted_at set, never hard-deleted), so a worker mid-run can still read its task config.
+  await reconcileJob(row);
 }

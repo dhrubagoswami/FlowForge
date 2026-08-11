@@ -1,7 +1,7 @@
 // Request/response shapes for the HTTP API — the contract in PHASE2.md §6, nothing route-specific beyond that.
 import { z } from 'zod';
 import { jobHealthSchema, jobStatusSchema, logLevelSchema, runStatusSchema, runTriggerSourceSchema, triggerTypeSchema, workerStatusSchema } from '../constants/enums.ts';
-import { jobConfigSchema } from './job-config.schema.ts';
+import { jobConfigSchema, triggerShape, taskSchema, retrySchema, idempotencySchema, alertSchema } from './job-config.schema.ts';
 
 export const apiErrorSchema = z.object({
   error: z.object({
@@ -15,7 +15,21 @@ export type ApiError = z.infer<typeof apiErrorSchema>;
 export const createJobRequestSchema = jobConfigSchema;
 export type CreateJobRequest = z.infer<typeof createJobRequestSchema>;
 
-export const updateJobRequestSchema = jobConfigSchema.partial();
+// A true deep partial, not zod's shallow .partial() — omitted fields (at any level, e.g. just
+// retry.baseMs inside retry) keep their current DB value; the merged whole is still validated
+// against the full jobConfigSchema before saving (see job.service.ts), so a partial edit can never
+// produce an invalid whole. name is excluded — a job's id/slug isn't something PATCH changes.
+export const updateJobRequestSchema = z
+  .object({
+    description: z.string().optional(),
+    trigger: triggerShape.partial().optional(),
+    task: taskSchema.partial().optional(),
+    timeoutMs: z.number().int().min(1000).max(900000).optional(),
+    retry: retrySchema.partial().optional(),
+    idempotency: idempotencySchema.partial().optional(),
+    alert: alertSchema.partial().optional(),
+  })
+  .strict();
 export type UpdateJobRequest = z.infer<typeof updateJobRequestSchema>;
 
 export const jobSummarySchema = z.object({
