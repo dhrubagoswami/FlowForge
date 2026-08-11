@@ -1,0 +1,22 @@
+{
+  "name": "@flowforge/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "^4.0.0",
+    "cron-parser": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "oxlint": "^1.71.0",
+    "vitest": "^3.0.0"
+  }
+}
