@@ -69,28 +69,6 @@ alert:
   after_consecutive_failures: 2`,
 };
 
-export const GEN_YAML = [
-  'name: competitor-pricing-scrape',
-  'trigger:',
-  '  type: cron',
-  '  expr: "0 9 * * *"        # daily at 9am',
-  '  tz: UTC',
-  'run:',
-  '  image: flowforge/scraper:1.4',
-  '  entry: scrape --url $TARGET',
-  '  timeout: 120s',
-  'retry:',
-  '  attempts: 3               # "retry 3 times"',
-  '  backoff: exponential',
-  '  base: 30s',
-  'idempotency:',
-  '  key: "{{job}}:{{scheduled_at}}"',
-  '  ttl: 24h',
-  'alert:',
-  '  after_consecutive_failures: 3',
-  '  channel: slack#ops',
-];
-
 export type LogLevel = 'info' | 'ok' | 'warn' | 'error';
 
 export const LOG_POOL: [LogLevel, string][] = [

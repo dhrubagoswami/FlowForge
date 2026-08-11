@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { RunLogLine, StatsOverview } from '@flowforge/shared';
+import type { JobConfig, RunLogLine, StatsOverview } from '@flowforge/shared';
+import { jobConfigToYaml } from '@flowforge/shared';
 import { Sidebar } from './components/Sidebar';
 import { MobileView } from './components/MobileView';
 import { Overview } from './pages/Overview';
@@ -8,12 +9,14 @@ import { JobDetail } from './pages/JobDetail';
 import { Composer } from './pages/Composer';
 import { Failures } from './pages/Failures';
 import { WorkersPage } from './pages/WorkersPage';
-import { EXAMPLE_PROMPTS, FINDINGS, FIXES, GEN_YAML, RAW } from './data/mockData';
+import { EXAMPLE_PROMPTS, FINDINGS, FIXES, RAW } from './data/mockData';
 import { toClusterRows } from './adapters/failure.adapter.ts';
 import { toJobDetailData, toJobRow, guaranteesForJob } from './adapters/job.adapter.ts';
 import { toJobRunRow, toLogLine, toRecentRunRow } from './adapters/run.adapter.ts';
 import { toActivityBars, toMobileStatCards, toOverviewWorkerBars, toStatCards } from './adapters/stats.adapter.ts';
 import { toWorkerCard } from './adapters/worker.adapter.ts';
+import { composeJob } from './api/ai.ts';
+import { createJob } from './api/jobs.ts';
 import { fetchRunLogs } from './api/runs.ts';
 import { useFailureClusters } from './hooks/useFailureClusters.ts';
 import { useJobDetail } from './hooks/useJobDetail.ts';
@@ -35,14 +38,15 @@ export default function App() {
   const [prompt, setPrompt] = useState(
     'Scrape the competitor pricing page every day at 9am UTC, retry 3 times with exponential backoff, and ping me in Slack after 3 failures in a row.'
   );
-  const [genLines, setGenLines] = useState(0);
   const [generating, setGenerating] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [composedConfig, setComposedConfig] = useState<JobConfig | null>(null);
+  const [composeIssues, setComposeIssues] = useState<string[] | null>(null);
   const [showRaw, setShowRaw] = useState(false);
   const [counters, setCounters] = useState({ runs: 0, rate: 0, depth: 0, p95: 0 });
   const [liveStats, setLiveStats] = useState<StatsOverview | null>(null);
   const [logs, setLogs] = useState<RunLogLine[]>([]);
 
-  const genIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const seenLogIdsRef = useRef(new Set<number>());
 
   const liveStream = useLiveStream();
@@ -139,8 +143,6 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  useEffect(() => () => clearInterval(genIntervalRef.current), []);
-
   // Eases the four headline stat cards toward their real values once the first overview payload
   // resolves (whether that's the one-shot fetch or an early stats.tick — whichever lands first),
   // keeping the original "counting up" motion instead of a hard snap. Runs once — every later
@@ -172,20 +174,38 @@ export default function App() {
   const go = (p: Page) => () => setPage(p);
   const openJob = (id: string) => () => { setJobId(id); setPage('job'); };
 
-  const runGenerate = () => {
-    clearInterval(genIntervalRef.current);
+  const runGenerate = async () => {
     setGenerating(true);
-    setGenLines(0);
-    genIntervalRef.current = setInterval(() => {
-      setGenLines(n => {
-        if (n >= GEN_YAML.length) {
-          clearInterval(genIntervalRef.current);
-          setGenerating(false);
-          return n;
-        }
-        return n + 1;
-      });
-    }, 70);
+    setComposedConfig(null);
+    setComposeIssues(null);
+    try {
+      const result = await composeJob(prompt);
+      if (result.ok) {
+        setComposedConfig(result.data.config);
+      } else {
+        setComposeIssues(result.data.validation.issues);
+      }
+    } catch {
+      setComposeIssues(['Something went wrong talking to the AI composer. Please try again.']);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const runDeploy = async () => {
+    if (!composedConfig) return;
+    setDeploying(true);
+    try {
+      await createJob(composedConfig);
+      setComposedConfig(null);
+      setComposeIssues(null);
+      jobs.retry();
+      setPage('jobs');
+    } catch {
+      setComposeIssues(['Deploying this config failed — it may already exist, or the server rejected it.']);
+    } finally {
+      setDeploying(false);
+    }
   };
 
   const dark = theme === 'dark';
@@ -213,13 +233,24 @@ export default function App() {
     ? { ...s, value: Math.round(counters.runs).toLocaleString() }
     : { ...s, value: counters.rate.toFixed(1) + '%' }));
 
-  const genYaml = GEN_YAML.slice(0, genLines).join('\n');
-  const parsed = [
-    { k: 'Schedule', v: genLines > 3 ? '0 9 * * * (UTC)' : '—' },
-    { k: 'Retries', v: genLines > 11 ? '3 · exponential' : '—' },
-    { k: 'Idempotency', v: genLines > 15 ? 'job:scheduled_at · 24h' : '—' },
-    { k: 'Alerting', v: genLines >= GEN_YAML.length ? 'slack#ops after 3' : '—' },
-  ];
+  const genYaml = composedConfig
+    ? jobConfigToYaml(composedConfig)
+    : composeIssues
+      ? composeIssues.map((issue) => `# ${issue}`).join('\n')
+      : '';
+  const parsed = composedConfig
+    ? [
+        { k: 'Schedule', v: composedConfig.trigger.type === 'cron' ? `${composedConfig.trigger.expr} (${composedConfig.trigger.tz})` : composedConfig.trigger.type },
+        { k: 'Retries', v: `${composedConfig.retry.attempts} · ${composedConfig.retry.backoff}` },
+        { k: 'Idempotency', v: `${composedConfig.idempotency.keyTemplate} · ${Math.round(composedConfig.idempotency.ttlSeconds / 3600)}h` },
+        { k: 'Alerting', v: composedConfig.alert.channel ? `${composedConfig.alert.channel} after ${composedConfig.alert.afterConsecutiveFailures}` : `after ${composedConfig.alert.afterConsecutiveFailures} failures` },
+      ]
+    : [
+        { k: 'Schedule', v: '—' },
+        { k: 'Retries', v: '—' },
+        { k: 'Idempotency', v: '—' },
+        { k: 'Alerting', v: '—' },
+      ];
 
   const sidebarProps = {
     page, onNavigate: (p: Page) => setPage(p),
@@ -286,12 +317,12 @@ export default function App() {
           <Composer
             prompt={prompt} setPrompt={setPrompt} examples={EXAMPLE_PROMPTS}
             onUseExample={(text) => setPrompt(text)}
-            modelLabel="anthropic/claude-sonnet via OpenRouter · schema-validated"
+            modelLabel="Gemini · schema-validated"
             generate={runGenerate} generateLabel={generating ? 'Generating…' : 'Generate config'}
-            genYaml={genYaml} caret={generating ? '▍' : ''}
-            validationLabel={genLines >= GEN_YAML.length ? 'schema valid' : generating ? 'streaming' : 'awaiting input'}
-            deployDisabled={genLines < GEN_YAML.length}
-            onDeploy={go('jobs')} onRegenerate={runGenerate} parsed={parsed}
+            genYaml={genYaml} caret=""
+            validationLabel={composedConfig ? 'schema valid' : composeIssues ? 'invalid — see issues' : generating ? 'generating…' : 'awaiting input'}
+            deployDisabled={!composedConfig || deploying}
+            onDeploy={runDeploy} onRegenerate={runGenerate} parsed={parsed}
           />
         )}
         {page === 'failures' && (

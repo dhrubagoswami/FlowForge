@@ -10,6 +10,10 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
   AI_CACHE_TTL_SECONDS: z.coerce.number().int().default(3600),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().default(2048),
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.2),
+  AI_RATE_LIMIT_PER_MIN: z.coerce.number().int().default(5),
+  AI_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().default(60000),
   DEMO_MODE: z.coerce.boolean().default(true),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 });

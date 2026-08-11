@@ -53,6 +53,27 @@ pnpm --filter=@flowforge/server db:touch-workers
 
 Note this is separate from the real worker process started above — that one registers and heartbeats its own row (e.g. an auto-generated id, or whatever `WORKER_ID` is set to) the moment it boots.
 
-## 1. Google Gemini API key (needed at M9 — AI Composer)
+## 1. Google Gemini API key (needed from M9 — AI Composer)
 
-Not needed yet. When M9 starts, this section will be filled in with click-by-click steps for Google AI Studio and the exact `GEMINI_API_KEY` / `GEMINI_MODEL` lines to paste into `server/.env`.
+The Composer page (and, from M10, the Failures page's AI diagnosis) needs a Google Gemini API key. Without it the rest of the app keeps working exactly as before — only `POST /api/ai/compose` returns a clear "not configured" error instead of a result.
+
+1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and sign in with a Google account.
+2. Click **Create API key**. If asked, choose "Create API key in new project" (no billing needed — this is the free tier).
+3. Copy the key it shows you (starts with `AIza...`).
+4. Paste it into `server/.env` as:
+   ```
+   GEMINI_API_KEY=AIza...your key here...
+   ```
+5. `server/.env` already has `GEMINI_MODEL=gemini-3.5-flash-lite` filled in as a default — the current fastest, highest-quota free-tier model as of when this was written. **Model names and free-tier limits change over time** (Google renamed the whole lineup between when this app's spec was written and when it was actually built — 2.5 became 3.5 mid-build). If Composer starts returning model-not-found or quota errors, check [Google's current model list](https://ai.google.dev/gemini-api/docs/models) and swap the value — no code change needed, just edit the `.env` line and restart the server.
+
+No worker changes needed — the AI composer only runs inside the server process.
+
+## A note on running `pnpm dev` locally
+
+`tsx watch` (what `pnpm dev` runs) does not load `.env` files by itself — the server will fail to start with a "DATABASE_URL/REDIS_URL missing" error unless you either export those variables in your shell first, or start it with Node's built-in env-file flag:
+
+```bash
+npx tsx watch --env-file=.env src/index.ts
+```
+
+This is a known gap in the `dev` script itself (tracked in `DECISIONS.md`), not something wrong with your `.env` file.

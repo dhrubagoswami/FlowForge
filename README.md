@@ -86,4 +86,4 @@ npm run build     # production build
 4. Horizontal worker scaling via Docker Compose.
 5. AI composer: plain-English → structured config via OpenRouter, schema-validated.
 6. AI failure digest: summarize clustered log failures via an LLM.
-7. Dockerize everything; deploy the dashboard (Vercel) with the queue/workers on a host that supports long-running processes (Railway/Fly.io/a VM).
+7. Dockerize everything; deploy the dashboard (Vercel) with the queue/workers on an AWS EC2 instance (free tier credit), Redis running on the same instance.

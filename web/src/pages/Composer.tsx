@@ -19,7 +19,7 @@ export function Composer(props: {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 38, margin: '0 0 4px' }}>Describe the job</h1>
-        <p className="text-muted" style={{ margin: 0, fontSize: 14 }}>Plain English in, validated job config out — translated by an LLM through OpenRouter, then schema-checked before it reaches the queue.</p>
+        <p className="text-muted" style={{ margin: 0, fontSize: 14 }}>Plain English in, validated job config out — translated by Gemini, then schema-checked before it reaches the queue.</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>

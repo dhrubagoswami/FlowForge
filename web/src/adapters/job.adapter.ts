@@ -1,4 +1,5 @@
 import type { JobDetail, JobSummary } from '@flowforge/shared';
+import { jobConfigToYaml } from '@flowforge/shared';
 import type { JobDetailData, JobRow } from '../types.ts';
 import { formatDuration, formatRelativeToNow, formatUntilNow } from './format.ts';
 import { HEALTH_TAG_CLASS } from './tags.ts';
@@ -24,18 +25,6 @@ export function toJobRow(job: JobSummary, open: () => void): JobRow {
   };
 }
 
-function jobConfigToYaml(job: JobDetail): string {
-  const lines = [`name: ${job.config.name}`, 'trigger:', `  type: ${job.config.trigger.type}`];
-  if (job.config.trigger.expr) lines.push(`  expr: "${job.config.trigger.expr}"`);
-  if (job.config.trigger.tz) lines.push(`  tz: ${job.config.trigger.tz}`);
-  lines.push('task:', `  type: ${job.config.task.type}`, `timeoutMs: ${job.config.timeoutMs}`);
-  lines.push('retry:', `  attempts: ${job.config.retry.attempts}`, `  backoff: ${job.config.retry.backoff}`, `  baseMs: ${job.config.retry.baseMs}`);
-  lines.push('idempotency:', `  key: "${job.config.idempotency.keyTemplate}"`, `  ttlSeconds: ${job.config.idempotency.ttlSeconds}`);
-  lines.push('alert:', `  afterConsecutiveFailures: ${job.config.alert.afterConsecutiveFailures}`);
-  if (job.config.alert.channel) lines.push(`  channel: ${job.config.alert.channel}`);
-  return lines.join('\n');
-}
-
 export function toJobDetailData(job: JobDetail): JobDetailData {
   return {
     id: job.id,
@@ -48,7 +37,7 @@ export function toJobDetailData(job: JobDetail): JobDetailData {
     avg: formatDuration(job.avgDurationMs),
     next: job.status === 'paused' ? 'paused' : formatUntilNow(job.nextRunAt),
     tagClass: HEALTH_TAG_CLASS[job.health],
-    yaml: jobConfigToYaml(job),
+    yaml: jobConfigToYaml(job.config),
   };
 }
 
