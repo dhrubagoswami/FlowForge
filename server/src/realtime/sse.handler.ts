@@ -15,6 +15,13 @@ export function handleSseConnection(request: FastifyRequest, reply: FastifyReply
     Connection: 'keep-alive',
   });
 
+  // writeHead() alone can leave the response buffered and never flushed to the socket until
+  // something is actually written — confirmed directly: without this line, curl/EventSource saw
+  // zero bytes for the full SSE_HEARTBEAT_MS (20s) until the first heartbeat forced a flush, long
+  // past any reasonable client-side connect timeout. Writing a comment line immediately forces the
+  // headers out and gives the client an onopen without waiting on the heartbeat interval.
+  reply.raw.write(': connected\n\n');
+
   const unsubscribe = subscribeToEvents((event) => {
     reply.raw.write(`event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`);
   });
