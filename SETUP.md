@@ -72,6 +72,12 @@ pnpm --filter=@flowforge/server db:touch-workers
 
 Note this is separate from the real worker process started above — that one registers and heartbeats its own row (e.g. an auto-generated id, or whatever `WORKER_ID` is set to) the moment it boots.
 
+The 30-day seeded run history has the same problem for a different reason: `pnpm db:seed` generates failure/run data ending at "now" *at the moment it's run*, not at whatever moment you happen to load the app later. The Failures page's default window is 7 days, so this only bites if the last seed is more than about a week old — but if you're demoing or running a browser QA pass and the seed is stale, re-seed first:
+
+```bash
+pnpm --filter=@flowforge/server db:seed
+```
+
 ## 1. Google Gemini API key (needed from M9 — AI Composer)
 
 The Composer page (and, from M10, the Failures page's AI diagnosis) needs a Google Gemini API key. Without it the rest of the app keeps working exactly as before — only `POST /api/ai/compose` returns a clear "not configured" error instead of a result.
