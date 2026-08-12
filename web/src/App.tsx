@@ -25,7 +25,7 @@ import { useJobs } from './hooks/useJobs.ts';
 import { useLiveStream } from './hooks/useLiveStream.ts';
 import { useStatsOverview } from './hooks/useStatsOverview.ts';
 import { useWorkers } from './hooks/useWorkers.ts';
-import type { Page, Theme, Viewport } from './types';
+import type { FailuresWindowHours, Page, Theme, Viewport } from './types';
 
 const NAV_PAGES: Page[] = ['overview', 'jobs', 'composer', 'failures', 'workers'];
 
@@ -45,6 +45,7 @@ export default function App() {
   const [diagnosis, setDiagnosis] = useState<AiDiagnoseResponse | null>(null);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
   const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
+  const [failuresWindowHours, setFailuresWindowHours] = useState<FailuresWindowHours>(168);
   const [demoBusy, setDemoBusy] = useState(false);
   const [demoMessage, setDemoMessage] = useState<string | null>(null);
   const [counters, setCounters] = useState({ runs: 0, rate: 0, depth: 0, p95: 0 });
@@ -57,10 +58,10 @@ export default function App() {
   const stats = useStatsOverview();
   const jobs = useJobs();
   const workers = useWorkers();
-  const failures = useFailureClusters();
+  const failures = useFailureClusters(failuresWindowHours);
   const activeJobId = jobId ?? jobs.data?.[0]?.id ?? null;
-  const jobDetail = useJobDetail(activeJobId ?? '');
-  const jobRuns = useJobRuns(activeJobId ?? '');
+  const jobDetail = useJobDetail(activeJobId);
+  const jobRuns = useJobRuns(activeJobId);
   const latestRunId = jobRuns.data?.runs[0]?.id ?? null;
   const clearLogs = () => setLogs([]);
 
@@ -200,7 +201,7 @@ export default function App() {
     setDiagnosisLoading(true);
     setDiagnosisError(null);
     try {
-      const result = await diagnoseFailures();
+      const result = await diagnoseFailures({ windowHours: failuresWindowHours });
       if (result.ok) {
         setDiagnosis(result.data);
       } else {
@@ -211,6 +212,14 @@ export default function App() {
     } finally {
       setDiagnosisLoading(false);
     }
+  };
+
+  const changeFailuresWindow = (hours: FailuresWindowHours) => {
+    setFailuresWindowHours(hours);
+    // A diagnosis summarizes a specific window's clusters — once the window changes, the cached
+    // diagnosis no longer matches what's on screen, so it must be re-run rather than left stale.
+    setDiagnosis(null);
+    setDiagnosisError(null);
   };
 
   const runDemoAction = async (label: string, action: () => Promise<unknown>) => {
@@ -391,6 +400,7 @@ export default function App() {
             clustersLoading={failures.loading} clustersError={failures.error} onRetryClusters={failures.retry}
             diagnosis={diagnosis} diagnosisLoading={diagnosisLoading} diagnosisError={diagnosisError} onDiagnose={runDiagnose}
             fixes={fixRows} onGoComposer={go('composer')}
+            windowHours={failuresWindowHours} onChangeWindowHours={changeFailuresWindow}
           />
         )}
         {page === 'workers' && (

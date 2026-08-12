@@ -1,4 +1,11 @@
+import type { FailuresWindowHours } from '../types';
 import { CardEmpty, CardError, CardSkeleton } from '../components/CardStates';
+
+const WINDOW_OPTIONS: { value: FailuresWindowHours; label: string }[] = [
+  { value: 24, label: '24h' },
+  { value: 168, label: '7d' },
+  { value: 720, label: '30d' },
+];
 
 export function Failures(props: {
   clusters: { title: string; sample: string; count: number; pct: string }[];
@@ -11,22 +18,39 @@ export function Failures(props: {
   onDiagnose: () => void;
   fixes: { n: string; title: string; detail: string }[];
   onGoComposer: () => void;
+  windowHours: FailuresWindowHours;
+  onChangeWindowHours: (hours: FailuresWindowHours) => void;
 }) {
   const {
     clusters, clustersLoading, clustersError, onRetryClusters,
     diagnosis, diagnosisLoading, diagnosisError, onDiagnose,
-    fixes, onGoComposer,
+    fixes, onGoComposer, windowHours, onChangeWindowHours,
   } = props;
+  const windowLabel = WINDOW_OPTIONS.find((o) => o.value === windowHours)?.label ?? `${windowHours}h`;
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 38, margin: '0 0 4px' }}>Failure digest</h1>
           <p className="text-muted" style={{ margin: 0, fontSize: 14 }}>Recent errors, clustered and summarized so nobody greps.</p>
         </div>
-        <button className="btn btn-primary" onClick={onDiagnose} disabled={diagnosisLoading}>
-          {diagnosisLoading ? 'Diagnosing…' : 'Diagnose failures'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {WINDOW_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`btn ${opt.value === windowHours ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '6px 14px', fontSize: 13 }}
+                onClick={() => onChangeWindowHours(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn btn-primary" onClick={onDiagnose} disabled={diagnosisLoading}>
+            {diagnosisLoading ? 'Diagnosing…' : 'Diagnose failures'}
+          </button>
+        </div>
       </div>
 
       <div style={{ borderRadius: 32, padding: '26px 28px', background: 'var(--color-accent-100)', color: 'var(--color-accent-900)', marginBottom: 18 }}>
@@ -50,7 +74,7 @@ export function Failures(props: {
             </div>
           </>
         ) : (
-          <p style={{ margin: 0, fontSize: 14, opacity: 0.8 }}>Click "Diagnose failures" to have Gemini explain what's going wrong, in plain English.</p>
+          <p style={{ margin: 0, fontSize: 14, opacity: 0.8 }}>Click "Diagnose failures" to have Gemini explain what's going wrong in the last {windowLabel}, in plain English.</p>
         )}
       </div>
 
@@ -62,7 +86,13 @@ export function Failures(props: {
           ) : clustersError ? (
             <CardError message={clustersError} onRetry={onRetryClusters} />
           ) : clusters.length === 0 ? (
-            <CardEmpty message="No failures clustered in this window." />
+            <CardEmpty
+              message={
+                windowHours === 720
+                  ? 'No failures in the last 30 days — a genuinely clean run, not a missing-data gap.'
+                  : `No failures in the last ${windowLabel}. Try a wider window if you expected to see something.`
+              }
+            />
           ) : (
             clusters.map(c => (
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 8%, transparent)' }} key={c.title}>
