@@ -1,8 +1,22 @@
-import type { Job, JobStatus, LogLevel } from './data/mockData';
-
 export type Page = 'overview' | 'jobs' | 'job' | 'composer' | 'failures' | 'workers';
 export type Theme = 'light' | 'dark';
 export type Viewport = 'desktop' | 'mobile';
+
+export type JobStatus = 'healthy' | 'degraded' | 'failing' | 'paused';
+export type Trigger = 'cron' | 'webhook';
+export type LogLevel = 'info' | 'ok' | 'warn' | 'error';
+
+export interface Job {
+  id: string;
+  name: string;
+  trigger: Trigger;
+  schedLabel: string;
+  status: JobStatus;
+  rate: number;
+  last: string;
+  avg: string;
+  next: string;
+}
 
 export interface LogLine {
   t: string;
@@ -47,5 +61,3 @@ export interface JobDetailData extends Job {
   tagClass: string;
   yaml: string;
 }
-
-export type { Job, JobStatus };

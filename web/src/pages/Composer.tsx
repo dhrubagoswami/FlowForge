@@ -1,3 +1,9 @@
+export const EXAMPLE_PROMPTS = [
+  { label: 'Nightly DB backup', text: 'Back up the primary Postgres to S3 every night at 2am, keep 30 days, page me if it fails twice.' },
+  { label: 'Webhook reconcile', text: 'On every Stripe invoice webhook, reconcile the invoice against our ledger; skip duplicates by event id.' },
+  { label: 'Re-index docs', text: 'Re-embed changed docs every 30 minutes, but never more than 200 requests per minute.' },
+];
+
 export function Composer(props: {
   prompt: string;
   setPrompt: (v: string) => void;
