@@ -3,7 +3,7 @@ import type { WorkerSummary } from '@flowforge/shared';
 import { WORKER_OFFLINE_AFTER_SECONDS } from '../config/constants.ts';
 import { findAllWorkers, type WorkerRow } from '../repositories/worker.repository.ts';
 
-function toWorkerSummary(worker: WorkerRow, now: Date): WorkerSummary {
+export function toWorkerSummary(worker: WorkerRow, now: Date): WorkerSummary {
   const secondsSinceHeartbeat = (now.getTime() - worker.lastHeartbeatAt.getTime()) / 1000;
   const status = secondsSinceHeartbeat > WORKER_OFFLINE_AFTER_SECONDS ? 'offline' : worker.status;
 

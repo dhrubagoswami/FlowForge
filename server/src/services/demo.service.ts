@@ -4,10 +4,11 @@
 // one; see kill-worker below).
 import type { DemoResetResult, RunSummary, WorkerSummary } from '@flowforge/shared';
 import { AppError } from '../lib/app-error.ts';
+import { publishEvent } from '../realtime/event-bus.ts';
 import { findJobById } from '../repositories/job.repository.ts';
 import { backdateWorkerHeartbeat, findAllWorkers, restoreWorkerHeartbeat, setWorkerStatus } from '../repositories/worker.repository.ts';
 import { enqueueRun } from './enqueue.service.ts';
-import { listWorkers } from './worker.service.ts';
+import { listWorkers, toWorkerSummary } from './worker.service.ts';
 
 const DEMO_TRIGGER_JOB_ID = 'competitor-pricing-scrape';
 const DEMO_BREAK_JOB_ID = 'stripe-webhook-reconcile';
@@ -49,6 +50,17 @@ async function pickWorkerToKill(): Promise<string> {
  * (after a short delay so the transition is visible) backdates its heartbeat so it reads `offline`
  * on the next check. Any run it was holding is left alone; BullMQ's own stalled-job recovery is
  * what picks it back up — demonstrating that recovery path is the point of this button.
+ *
+ * Publishes worker.updated explicitly at both transitions rather than waiting for the real
+ * worker's own heartbeat loop to notice and publish it. The real worker process is untouched by
+ * this action (see above) and keeps heartbeating on its own ~5s cadence — draining only holds for
+ * KILL_WORKER_DRAIN_DELAY_MS (2s), so relying on a heartbeat tick landing inside that window would
+ * make the transition a coin-flip in the UI instead of the deterministic, always-visible sequence
+ * a demo needs. A heartbeat tick landing in the same window is harmless: the frontend's
+ * worker.updated handler doesn't apply the event payload directly, it just triggers a fresh
+ * GET /api/workers (App.tsx), so a duplicate publish of the same state is a redundant refetch, not
+ * a correctness risk. This is deliberately scoped to the demo path only — the real worker
+ * lifecycle keeps relying on the heartbeat loop, not an explicit publish per state change.
  */
 export async function demoKillWorker(): Promise<WorkerSummary> {
   const workerId = await pickWorkerToKill();
@@ -57,9 +69,14 @@ export async function demoKillWorker(): Promise<WorkerSummary> {
   if (!drainingRow) {
     throw new AppError({ code: 'WORKER_NOT_FOUND', message: `Worker "${workerId}" was not found.`, statusCode: 404 });
   }
+  const drainingSummary = toWorkerSummary(drainingRow, new Date());
+  publishEvent({ event: 'worker.updated', data: { worker: drainingSummary } });
 
   setTimeout(() => {
-    void backdateWorkerHeartbeat(workerId, 'offline', new Date(Date.now() - KILL_WORKER_BACKDATE_MS));
+    void backdateWorkerHeartbeat(workerId, 'offline', new Date(Date.now() - KILL_WORKER_BACKDATE_MS)).then((offlineRow) => {
+      if (!offlineRow) return;
+      publishEvent({ event: 'worker.updated', data: { worker: toWorkerSummary(offlineRow, new Date()) } });
+    });
   }, KILL_WORKER_DRAIN_DELAY_MS);
 
   const workers = await listWorkers();
