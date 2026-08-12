@@ -5,7 +5,11 @@ import { SSE_HEARTBEAT_MS } from '../config/constants.ts';
 import { subscribeToEvents } from './event-bus.ts';
 
 export function handleSseConnection(request: FastifyRequest, reply: FastifyReply): void {
+  // reply.raw.writeHead() writes straight to the socket, bypassing Fastify's own send
+  // pipeline — so headers set by plugins via reply.header() (e.g. @fastify/cors's onRequest
+  // hook, which runs before this handler) never reach the client unless merged in here.
   reply.raw.writeHead(200, {
+    ...(reply.getHeaders() as Record<string, string | number | string[]>),
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
