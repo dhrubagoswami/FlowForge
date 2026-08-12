@@ -3,10 +3,17 @@ import type { LogLevel } from '@flowforge/shared';
 import { runLogsTable } from '@flowforge/shared';
 import { db } from '../db/client.ts';
 import { publishRealtimeEvent } from './realtime-publisher.ts';
+import { withDbTimeout } from './with-db-timeout.ts';
+
+const TASK_LOG_WRITE_TIMEOUT_MS = 10000;
 
 export function createTaskLogger(runId: string) {
   return async function log(level: LogLevel, message: string): Promise<void> {
-    const [row] = await db.insert(runLogsTable).values({ runId, ts: new Date(), level, message }).returning();
+    const [row] = await withDbTimeout(
+      () => db.insert(runLogsTable).values({ runId, ts: new Date(), level, message }).returning(),
+      TASK_LOG_WRITE_TIMEOUT_MS,
+      'task-logger',
+    );
     if (row) {
       publishRealtimeEvent({
         event: 'run.log',
