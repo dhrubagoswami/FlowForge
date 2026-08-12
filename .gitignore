@@ -17,6 +17,9 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# Diagnostic captures - session-local debug artifacts, not source
+redis-monitor.csv
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

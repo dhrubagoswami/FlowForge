@@ -13,21 +13,32 @@ This file is a running list of every credential the backend needs, in the order 
 
 **Alternative — Docker, if you'd rather run Postgres locally:** the repo ships a `docker-compose.yml` at the root. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), run `docker compose up -d` from the repo root to start Postgres on `localhost:5432`, then use `DATABASE_URL=postgres://flowforge:flowforge@localhost:5432/flowforge`.
 
-## Redis queue (Upstash) — needed since M5
+## Redis queue — needed since M5
 
-FlowForge's queue (BullMQ) needs a real Redis instance — the server enqueues jobs onto it, the worker process dequeues and runs them. Click-by-click:
+FlowForge's queue (BullMQ) needs a real Redis instance — the server enqueues jobs onto it, the worker process dequeues and runs them.
+
+**Local dev: run Redis locally, not on a hosted free tier.** BullMQ's idle polling has a real, ongoing command cost even with zero jobs running — a dev server left running overnight against a metered free tier can burn through its monthly command allowance on idle polling alone. Local dev should always point at a locally-running Redis:
+
+- **Windows:** install [Memurai Developer](https://www.memurai.com/get-memurai) (free, Redis-protocol-compatible, runs as a Windows service). After installing, confirm it's running with `Get-Service Memurai` (PowerShell) — status should be `Running`.
+- **Linux/macOS/WSL:** `sudo apt-get install redis-server` (or your platform's equivalent), then confirm with `redis-cli ping` — should return `PONG`.
+- **Docker (any platform):** the repo's `docker-compose.yml` also starts Redis on `localhost:6379` — run `docker compose up -d`.
+
+Whichever you use, set in **both** `server/.env` and `worker/.env`:
+```
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+**Hosted Redis (Upstash or equivalent) is for deployed environments only** — never point local dev at it. If you're setting up a deployed environment:
 
 1. Go to [upstash.com](https://upstash.com) and sign up (GitHub login is fastest, no credit card needed for the free tier).
 2. Click **Create Database**.
 3. Name it anything (e.g. `flowforge`), pick the region closest to you, and leave the type as **Regional**.
 4. Once it's created, open the database and find the **Connect** tab.
 5. Copy the connection string labeled **`ioredis`** or **`Redis URL`** — it starts with `rediss://` (note the double `s` — that means TLS is on, which Upstash requires). Don't use the REST API URL; BullMQ needs the raw Redis protocol one.
-6. Paste it into **both** `server/.env` and `worker/.env` as:
+6. Set it as `REDIS_URL` in that environment's own config:
    ```
    REDIS_URL=rediss://default:...your string here...@....upstash.io:6379
    ```
-
-**Alternative — Docker, if you'd rather run Redis locally:** the same `docker-compose.yml` also starts Redis on `localhost:6379` — run `docker compose up -d`, then use `REDIS_URL=redis://localhost:6379` (no `s` — no TLS needed locally).
 
 ## Running the queue and worker (M5 onward)
 
@@ -42,6 +53,14 @@ pnpm --filter=@flowforge/worker dev
 ```
 
 Both need `DATABASE_URL` and `REDIS_URL` set in their own `.env` file (`server/.env` and `worker/.env` respectively — copy the same values into both).
+
+### If you see "another live instance already holds..." and the process exits immediately
+
+This is a safety guard, not a bug. A worker (or the server's schedule-tick worker) doesn't listen on any port, so nothing at the OS level stops two copies from accidentally running at once — that actually happened during this project's build and quietly wasted a hosted Redis free tier's entire monthly quota in under a week before anyone noticed (see `DECISIONS.md`). Each process now claims a small Redis lock on boot and refuses to start if another live instance already holds it.
+
+- If you didn't mean to start a second one: you probably have a `pnpm dev` from an earlier terminal/session still running. Run `pnpm dev:clean` from the repo root — it finds and kills any orphaned FlowForge node processes on this machine, then start again.
+- If you're deliberately running more than one worker at once (e.g. testing concurrency), set a distinct `WORKER_ID` for each one in its own `.env` — with `WORKER_ID` unset (the default), every instance on the same machine and the same checkout of this repo is treated as a duplicate of the same worker, on purpose. `EXPECTED_WORKER_FLEET_SIZE` in `worker/.env` controls when the boot-time log warns you about more instances than expected — it doesn't block anything, it's just a heads-up.
+- `pnpm dev` runs `pnpm dev:clean` automatically first (via a `predev` script), so a plain restart shouldn't normally hit this at all — it's there for when you start `server`/`worker` directly (e.g. `tsx watch --env-file=.env src/index.ts`) without going through `pnpm dev`.
 
 ## Before demoing or viewing the dashboard
 
