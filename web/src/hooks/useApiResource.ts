@@ -9,15 +9,26 @@ export interface ApiResourceState<T> {
   retry: () => void;
 }
 
-export function useApiResource<T>(fetcher: () => Promise<T>, deps: unknown[]): ApiResourceState<T> {
+export function useApiResource<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[],
+  options?: { skip?: boolean }
+): ApiResourceState<T> {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!options?.skip);
   const [error, setError] = useState<string | null>(null);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (options?.skip) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -38,7 +49,7 @@ export function useApiResource<T>(fetcher: () => Promise<T>, deps: unknown[]): A
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, attempt]);
+  }, [...deps, attempt, options?.skip]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
