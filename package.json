@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/dev-clean.mjs",
     "dev": "pnpm --parallel --filter=./server --filter=./worker --filter=./web run dev",
+    "dev:clean": "node scripts/dev-clean.mjs",
     "build": "pnpm --recursive run build",
     "lint": "pnpm --recursive run lint",
-    "test": "pnpm --recursive --if-present run test"
+    "test": "pnpm --recursive --if-present run test",
+    "redis:floor": "pnpm --filter server run redis:floor"
   }
 }

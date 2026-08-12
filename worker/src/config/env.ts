@@ -10,6 +10,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1),
   WORKER_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).default(4),
+  EXPECTED_WORKER_FLEET_SIZE: z.coerce.number().int().min(1).default(1),
   HEARTBEAT_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
   SHUTDOWN_GRACE_MS: z.coerce.number().int().min(1000).default(30000),
   LOG_LEVEL: z.string().default('info'),
