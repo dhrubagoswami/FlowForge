@@ -1,7 +1,7 @@
 // The in-server consumer for scheduleTickQueue. Deliberately not in worker/ — creating a run row
 // and enqueueing it is a database+queue operation, not task execution, and letting every worker
 // replica also consume this queue would fire each cron slot once per replica instead of once total.
-import { SCHEDULE_TICK_QUEUE_NAME, type ScheduleTickPayload } from '@flowforge/shared';
+import { QUEUE_DRAIN_DELAY_SECONDS, QUEUE_STALLED_INTERVAL_MS, SCHEDULE_TICK_QUEUE_NAME, type ScheduleTickPayload } from '@flowforge/shared';
 import { Worker } from 'bullmq';
 import { redisConnection } from './connection.ts';
 import { logger } from '../lib/logger.ts';
@@ -13,7 +13,12 @@ export function startScheduleTickWorker(): Worker<ScheduleTickPayload> {
     async (job) => {
       await handleScheduleTick({ jobId: job.data.jobId, schedulerJobId: job.id, firedAt: new Date(job.timestamp) });
     },
-    { connection: redisConnection, concurrency: 1 },
+    {
+      connection: redisConnection,
+      concurrency: 1,
+      drainDelay: QUEUE_DRAIN_DELAY_SECONDS,
+      stalledInterval: QUEUE_STALLED_INTERVAL_MS,
+    },
   );
 
   worker.on('failed', (job, err) => {

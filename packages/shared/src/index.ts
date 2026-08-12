@@ -1,5 +1,6 @@
 // Barrel for @flowforge/shared — re-exports only, no logic.
 export * from './constants/enums.ts';
+export * from './constants/instance-lock.ts';
 export * from './constants/queue.ts';
 export * from './constants/realtime.ts';
 export * from './constants/task-types.ts';

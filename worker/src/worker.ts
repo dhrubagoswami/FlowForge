@@ -2,7 +2,7 @@
 // and records the outcome — retrying with growing backoff (BullMQ's own attempts/backoff, driven
 // by each job's retryAttempts/retryBackoff/retryBaseMs) up to dead-letter on the final attempt.
 import { eq } from 'drizzle-orm';
-import { JOB_QUEUE_NAME, type JobQueuePayload, jobsTable, runsTable } from '@flowforge/shared';
+import { JOB_QUEUE_NAME, QUEUE_DRAIN_DELAY_SECONDS, QUEUE_STALLED_INTERVAL_MS, type JobQueuePayload, jobsTable, runsTable } from '@flowforge/shared';
 import { Worker } from 'bullmq';
 import { env } from './config/env.ts';
 import { db } from './db/client.ts';
@@ -140,7 +140,12 @@ export function startWorker(workerId: string, inflight: InflightCounter): Worker
     async (job) => {
       await processRun(job.data, workerId, job.attemptsMade, job.opts.attempts ?? 1);
     },
-    { connection: redisConnection, concurrency: env.WORKER_CONCURRENCY },
+    {
+      connection: redisConnection,
+      concurrency: env.WORKER_CONCURRENCY,
+      drainDelay: QUEUE_DRAIN_DELAY_SECONDS,
+      stalledInterval: QUEUE_STALLED_INTERVAL_MS,
+    },
   );
 
   worker.on('active', () => inflight.increment());
