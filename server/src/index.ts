@@ -14,6 +14,7 @@ import { redisConnection } from './queue/connection.ts';
 import { reconcileAllSchedules } from './queue/scheduler.ts';
 import { startScheduleTickWorker } from './queue/schedule-tick.worker.ts';
 import { startRedisEventSubscriber } from './realtime/redis-subscriber.ts';
+import { startStatsTick } from './realtime/stats-tick.ts';
 
 const HARD_EXIT_TIMEOUT_MS = 10000;
 
@@ -80,6 +81,12 @@ async function main() {
   // SSE stream. One subscriber per process, shared by every connected browser tab — never one per
   // SSE connection (see realtime/sse.handler.ts, which only touches the in-process event bus).
   const redisEventSubscriber = startRedisEventSubscriber();
+  // §8: recomputes and publishes the full Overview payload as stats.tick every
+  // STATS_TICK_INTERVAL_MS — the one thing driving the Overview page's live counters and recent-runs
+  // table without a refresh. Built at M8 but never actually called here, the same shape of gap as
+  // the Redis event subscriber below (see DECISIONS.md) — found this pass while chasing why a fired
+  // demo job's row never appeared on the Overview page during a live SSE-connected browser session.
+  const statsTick = startStatsTick();
 
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info(`FlowForge server listening on port ${env.PORT}`);
@@ -100,6 +107,7 @@ async function main() {
 
     logger.info(`Received ${signal}, shutting down...`);
     lockRefresh.stop();
+    statsTick.stop();
     await scheduleTickWorker.close();
     await redisEventSubscriber.stop();
     await app.close();
