@@ -90,7 +90,7 @@ export const SEED_JOBS: SeedJobDef[] = [
     cronExpr: null,
     timezone: 'UTC',
     taskType: 'simulate',
-    taskInput: { durationMs: 840, failureMode: 'none', failureRate: 0.04 },
+    taskInput: { durationMs: 840, failureMode: 'rate_limit', failureRate: 1 },
     status: 'active',
     timeoutMs: 15000,
     retryAttempts: 3,
