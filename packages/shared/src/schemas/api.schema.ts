@@ -86,6 +86,12 @@ export const workerSummarySchema = z.object({
 });
 export type WorkerSummary = z.infer<typeof workerSummarySchema>;
 
+export const demoResetResultSchema = z.object({
+  restoredWorkerIds: z.array(z.string()),
+  workers: z.array(workerSummarySchema),
+});
+export type DemoResetResult = z.infer<typeof demoResetResultSchema>;
+
 export const statsOverviewSchema = z.object({
   runsLast24h: z.number(),
   successRatePct: z.number(),

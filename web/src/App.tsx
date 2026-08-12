@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { JobConfig, RunLogLine, StatsOverview } from '@flowforge/shared';
+import type { AiDiagnoseResponse, JobConfig, RunLogLine, StatsOverview } from '@flowforge/shared';
 import { jobConfigToYaml } from '@flowforge/shared';
 import { Sidebar } from './components/Sidebar';
 import { MobileView } from './components/MobileView';
 import { Overview } from './pages/Overview';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetail } from './pages/JobDetail';
-import { Composer } from './pages/Composer';
+import { Composer, EXAMPLE_PROMPTS } from './pages/Composer';
 import { Failures } from './pages/Failures';
 import { WorkersPage } from './pages/WorkersPage';
-import { EXAMPLE_PROMPTS, FINDINGS, FIXES, RAW } from './data/mockData';
 import { toClusterRows } from './adapters/failure.adapter.ts';
 import { toJobDetailData, toJobRow, guaranteesForJob } from './adapters/job.adapter.ts';
 import { toJobRunRow, toLogLine, toRecentRunRow } from './adapters/run.adapter.ts';
 import { toActivityBars, toMobileStatCards, toOverviewWorkerBars, toStatCards } from './adapters/stats.adapter.ts';
 import { toWorkerCard } from './adapters/worker.adapter.ts';
-import { composeJob } from './api/ai.ts';
+import { composeJob, diagnoseFailures } from './api/ai.ts';
+import { demoBreak, demoKillWorker, demoReset, demoTrigger } from './api/demo.ts';
 import { createJob } from './api/jobs.ts';
 import { fetchRunLogs } from './api/runs.ts';
 import { useFailureClusters } from './hooks/useFailureClusters.ts';
@@ -42,7 +42,11 @@ export default function App() {
   const [deploying, setDeploying] = useState(false);
   const [composedConfig, setComposedConfig] = useState<JobConfig | null>(null);
   const [composeIssues, setComposeIssues] = useState<string[] | null>(null);
-  const [showRaw, setShowRaw] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<AiDiagnoseResponse | null>(null);
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoMessage, setDemoMessage] = useState<string | null>(null);
   const [counters, setCounters] = useState({ runs: 0, rate: 0, depth: 0, p95: 0 });
   const [liveStats, setLiveStats] = useState<StatsOverview | null>(null);
   const [logs, setLogs] = useState<RunLogLine[]>([]);
@@ -192,6 +196,53 @@ export default function App() {
     }
   };
 
+  const runDiagnose = async () => {
+    setDiagnosisLoading(true);
+    setDiagnosisError(null);
+    try {
+      const result = await diagnoseFailures();
+      if (result.ok) {
+        setDiagnosis(result.data);
+      } else {
+        setDiagnosisError(result.data.error);
+      }
+    } catch {
+      setDiagnosisError('Something went wrong talking to the AI diagnosis. Please try again.');
+    } finally {
+      setDiagnosisLoading(false);
+    }
+  };
+
+  const runDemoAction = async (label: string, action: () => Promise<unknown>) => {
+    setDemoBusy(true);
+    setDemoMessage(null);
+    try {
+      await action();
+      setDemoMessage(`${label} — watch the page update live.`);
+    } catch {
+      setDemoMessage(`${label} failed — see the console for details.`);
+    } finally {
+      setDemoBusy(false);
+    }
+  };
+
+  const runDemoReset = async () => {
+    setDemoBusy(true);
+    setDemoMessage(null);
+    try {
+      const result = await demoReset();
+      setDemoMessage(
+        result.restoredWorkerIds.length === 0
+          ? 'Reset demo — nothing needed restoring, the fleet was already clean.'
+          : `Reset demo — restored ${result.restoredWorkerIds.length} worker${result.restoredWorkerIds.length === 1 ? '' : 's'} to online.`,
+      );
+    } catch {
+      setDemoMessage('Reset demo failed — see the console for details.');
+    } finally {
+      setDemoBusy(false);
+    }
+  };
+
   const runDeploy = async () => {
     if (!composedConfig) return;
     setDeploying(true);
@@ -219,6 +270,10 @@ export default function App() {
   const jobRunRows = useMemo(() => (jobRuns.data?.runs ?? []).map(toJobRunRow), [jobRuns.data]);
   const logLines = useMemo(() => logs.map(toLogLine), [logs]);
   const clusterRows = useMemo(() => toClusterRows(failures.data ?? []), [failures.data]);
+  const fixRows = useMemo(
+    () => (diagnosis?.fixes ?? []).map((fx, i) => ({ n: String(i + 1).padStart(2, '0'), title: fx.title, detail: fx.rationale })),
+    [diagnosis],
+  );
 
   const statCards = overviewStats ? toStatCards(overviewStats) : [];
   const mobileStatCards = overviewStats ? toMobileStatCards(overviewStats) : [];
@@ -286,6 +341,11 @@ export default function App() {
             workersOnline={workersOnline}
             loading={stats.loading} error={stats.error} onRetry={stats.retry}
             onGoFailures={go('failures')} onGoComposer={go('composer')} onGoWorkers={go('workers')} onGoJobs={go('jobs')}
+            demoMessage={demoMessage} demoBusy={demoBusy}
+            onDemoTrigger={() => runDemoAction('Fired a job', demoTrigger)}
+            onDemoBreak={() => runDemoAction('Broke a job on purpose', demoBreak)}
+            onDemoKillWorker={() => runDemoAction('Simulated a worker dying', demoKillWorker)}
+            onDemoReset={runDemoReset}
           />
         )}
         {page === 'jobs' && (
@@ -327,12 +387,10 @@ export default function App() {
         )}
         {page === 'failures' && (
           <Failures
-            findings={FINDINGS} clusters={clusterRows}
+            clusters={clusterRows}
             clustersLoading={failures.loading} clustersError={failures.error} onRetryClusters={failures.retry}
-            showRaw={showRaw} showFixes={!showRaw}
-            rawLog={RAW} rawTitle={showRaw ? 'Raw log sample' : 'Suggested fixes'}
-            rawLabel={showRaw ? 'Show suggested fixes' : 'Show raw logs'}
-            onToggleRaw={() => setShowRaw(r => !r)} fixes={FIXES} onGoComposer={go('composer')}
+            diagnosis={diagnosis} diagnosisLoading={diagnosisLoading} diagnosisError={diagnosisError} onDiagnose={runDiagnose}
+            fixes={fixRows} onGoComposer={go('composer')}
           />
         )}
         {page === 'workers' && (

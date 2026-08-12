@@ -1,6 +1,7 @@
 // Registers every route module against the Fastify instance. No route logic lives here.
 import type { FastifyInstance } from 'fastify';
 import { registerAiRoutes } from './ai.routes.ts';
+import { registerDemoRoutes } from './demo.routes.ts';
 import { registerFailureRoutes } from './failure.routes.ts';
 import { registerHealthRoutes } from './health.routes.ts';
 import { registerJobRoutes } from './job.routes.ts';
@@ -18,4 +19,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerFailureRoutes(app);
   await registerStreamRoutes(app);
   await registerAiRoutes(app);
+  await registerDemoRoutes(app);
 }

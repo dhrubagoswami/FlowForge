@@ -15,6 +15,8 @@ const envSchema = z.object({
   AI_RATE_LIMIT_PER_MIN: z.coerce.number().int().default(5),
   AI_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().default(60000),
   DEMO_MODE: z.coerce.boolean().default(true),
+  DEMO_RATE_LIMIT_PER_MIN: z.coerce.number().int().default(10),
+  DEMO_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().default(60000),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 });
 

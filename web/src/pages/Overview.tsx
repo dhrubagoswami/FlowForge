@@ -27,8 +27,17 @@ export function Overview(props: {
   onGoComposer: () => void;
   onGoWorkers: () => void;
   onGoJobs: () => void;
+  demoMessage: string | null;
+  demoBusy: boolean;
+  onDemoTrigger: () => void;
+  onDemoBreak: () => void;
+  onDemoKillWorker: () => void;
+  onDemoReset: () => void;
 }) {
-  const { stats, bars, topWorkers, recentRuns, workersOnline, loading, error, onRetry, onGoFailures, onGoComposer, onGoWorkers, onGoJobs } = props;
+  const {
+    stats, bars, topWorkers, recentRuns, workersOnline, loading, error, onRetry, onGoFailures, onGoComposer, onGoWorkers, onGoJobs,
+    demoMessage, demoBusy, onDemoTrigger, onDemoBreak, onDemoKillWorker, onDemoReset,
+  } = props;
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 26 }}>
@@ -40,6 +49,22 @@ export function Overview(props: {
           <button className="btn btn-secondary" onClick={onGoFailures}>Failure digest</button>
           <button className="btn btn-primary" onClick={onGoComposer}>Describe a job</button>
         </div>
+      </div>
+
+      <div className="card" style={{ padding: '18px 20px', gap: 10, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <h4 style={{ margin: 0 }}>Demo panel</h4>
+          <span className="text-muted" style={{ fontSize: 12 }}>trigger, break, and recover real work on purpose</span>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button className="btn btn-secondary" disabled={demoBusy} onClick={onDemoTrigger}>Fire a job</button>
+          <button className="btn btn-secondary" disabled={demoBusy} onClick={onDemoBreak}>Break something</button>
+          <button className="btn btn-secondary" disabled={demoBusy} onClick={onDemoKillWorker} title="Simulates worker loss at the database level — no OS process is touched.">
+            Kill a worker
+          </button>
+          <button className="btn btn-ghost" disabled={demoBusy} onClick={onDemoReset}>Reset demo</button>
+        </div>
+        {demoMessage && <p className="text-muted" style={{ margin: 0, fontSize: 12.5 }}>{demoMessage}</p>}
       </div>
 
       {error ? (
