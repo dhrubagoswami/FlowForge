@@ -160,9 +160,17 @@ describe('activityBucketsSince', () => {
 
 describe('topWorkersByInflight', () => {
   it('orders workers by inflight descending and respects the limit', async () => {
+    // This dev database isn't exclusively test data (see db-fixtures.ts's constraint note) — a
+    // real worker process (e.g. the load test) can leave a row with a high inflight count, which
+    // would silently outrank a hardcoded fixture value and break this assertion. Snapshotting the
+    // current top inflight value first and building the fixture's "high" row to exceed it makes
+    // the test's own row provably win regardless of what else is in the table.
     const suffix = randomUUID().slice(0, 8);
+    const [currentTop] = await topWorkersByInflight(1);
+    const highInflight = (currentTop?.inflight ?? 0) + 1000;
+
     const low = await insertTestWorker({ id: `test-worker-low-${suffix}`, inflight: 1, concurrency: 4 });
-    const high = await insertTestWorker({ id: `test-worker-high-${suffix}`, inflight: 9, concurrency: 10 });
+    const high = await insertTestWorker({ id: `test-worker-high-${suffix}`, inflight: highInflight, concurrency: 10 });
     workerIds.push(low.id, high.id);
 
     const top = await topWorkersByInflight(1);

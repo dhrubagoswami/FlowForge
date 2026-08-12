@@ -3,6 +3,13 @@
 // fixture row leaked into a later test could make that test pass for the wrong reason, so cleanup
 // is explicit rather than relying on transaction rollback (there's no shared transaction wrapper
 // here, since each repository call under test opens its own connection through the shared `db`).
+//
+// IMPORTANT — this points at the same database used for manual QA and demo clicks, not an
+// isolated test database. NEVER write a test that assumes some slice of the table is empty (e.g.
+// "this hour has no runs yet"), even one that looks obviously true. It will pass locally and flake
+// later once real rows land nearby. Instead, snapshot the query result before inserting fixture
+// data, then assert the delta after inserting — see stats.repository.test.ts's
+// activityBucketsSince gap-hour test for the pattern.
 import { randomUUID } from 'node:crypto';
 import { jobsTable, runsTable, workersTable } from '@flowforge/shared';
 import type { RunStatus } from '@flowforge/shared';

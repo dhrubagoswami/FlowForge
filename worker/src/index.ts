@@ -2,6 +2,7 @@
 import { QUEUE_DRAIN_DELAY_SECONDS, QUEUE_STALLED_INTERVAL_MS } from '@flowforge/shared';
 import { InflightCounter, startHeartbeat } from './heartbeat.ts';
 import { env } from './config/env.ts';
+import { DB_POOL_SIZE } from './db/client.ts';
 import { acquireInstanceLock, countLiveWorkerInstances, InstanceLockConflictError } from './instance-lock.ts';
 import { logger } from './lib/logger.ts';
 import { registerWorker, resolveWorkerId } from './registration.ts';
@@ -21,6 +22,9 @@ async function logRedisClientCensus(): Promise<void> {
     {
       liveWorkerInstances,
       expectedWorkerFleetSize: env.EXPECTED_WORKER_FLEET_SIZE,
+      // Logged here (not just left to be discovered under load) after the M11 load test found the
+      // postgres.js pool defaulting to 10 regardless of WORKER_CONCURRENCY — see db/client.ts.
+      postgresPoolSize: DB_POOL_SIZE,
       redisConnectingClients: [
         {
           name: 'bullmq-job-worker',
