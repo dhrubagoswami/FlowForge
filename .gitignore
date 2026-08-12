@@ -20,6 +20,9 @@ pnpm-debug.log*
 # Diagnostic captures - session-local debug artifacts, not source
 redis-monitor.csv
 
+# QA harness output (screenshots, results JSON) - regenerated per run, not source
+qa/output/
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

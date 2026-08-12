@@ -10,6 +10,10 @@
     "build": "pnpm --recursive run build",
     "lint": "pnpm --recursive run lint",
     "test": "pnpm --recursive --if-present run test",
-    "redis:floor": "pnpm --filter server run redis:floor"
+    "redis:floor": "pnpm --filter server run redis:floor",
+    "qa": "node qa/qa_runner.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }
