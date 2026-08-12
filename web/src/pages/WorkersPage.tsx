@@ -27,7 +27,10 @@ export function WorkersPage(props: {
             <div className="card elev-sm" style={{ padding: '18px 20px', gap: 10 }} key={w.id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontFamily: 'ui-monospace,monospace', fontSize: 13 }}>{w.id}</span>
-                <span className={`tag ${w.tagClass}`}>{w.state}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`tag ${w.tagClass}`}>{w.state}</span>
+                  <span className={`tag ${w.statusTagClass}`} style={{ fontWeight: 600 }}>{w.status}</span>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontFamily: 'var(--font-heading)', fontSize: 26 }}>{w.inflight}</span>

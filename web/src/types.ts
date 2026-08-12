@@ -1,4 +1,5 @@
 export type Page = 'overview' | 'jobs' | 'job' | 'composer' | 'failures' | 'workers';
+export type FailuresWindowHours = 24 | 168 | 720;
 export type Theme = 'light' | 'dark';
 export type Viewport = 'desktop' | 'mobile';
 
@@ -32,6 +33,13 @@ export interface JobRow extends Job {
   open?: () => void;
 }
 
+export interface WorkerLoadBar {
+  id: string;
+  pct: string;
+  load: string;
+  fill: string;
+}
+
 export interface WorkerCard {
   id: string;
   inflight: number;
@@ -41,6 +49,8 @@ export interface WorkerCard {
   fill: string;
   state: 'saturated' | 'ready';
   tagClass: string;
+  status: 'online' | 'draining' | 'offline';
+  statusTagClass: string;
   meta: string;
 }
 

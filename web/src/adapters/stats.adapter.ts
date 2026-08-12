@@ -1,5 +1,5 @@
 import type { StatsOverview } from '@flowforge/shared';
-import type { WorkerCard } from '../types.ts';
+import type { WorkerLoadBar } from '../types.ts';
 
 export interface Bar {
   x: number;
@@ -44,21 +44,16 @@ export function toStatCards(overview: StatsOverview): StatCard[] {
   ];
 }
 
-/** The Overview page's "worker fleet" bars only need id/inflight/concurrency — a lighter shape than the full worker.adapter's WorkerCard, which needs hostname/heartbeat data the top-workers query doesn't return. */
-export function toOverviewWorkerBars(topWorkers: StatsOverview['topWorkers']): WorkerCard[] {
+/** The Overview page's "worker fleet" bars only need id/load — a lighter shape than the full worker.adapter's WorkerCard, which also needs hostname/heartbeat/connectivity-status data the top-workers query doesn't return. */
+export function toOverviewWorkerBars(topWorkers: StatsOverview['topWorkers']): WorkerLoadBar[] {
   return topWorkers.map((w) => {
     const pct = Math.round((w.inflight / w.concurrency) * 100);
     const saturated = pct > 90;
     return {
       id: w.id,
-      inflight: w.inflight,
-      capacity: w.concurrency,
       pct: `${pct}%`,
       load: `${pct}%`,
       fill: saturated ? 'var(--color-accent)' : 'var(--color-accent-2-500)',
-      state: saturated ? 'saturated' : 'ready',
-      tagClass: saturated ? 'tag-accent' : 'tag-accent-2',
-      meta: '',
     };
   });
 }

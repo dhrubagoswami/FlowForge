@@ -1,4 +1,4 @@
-import type { RunRow, WorkerCard } from '../types';
+import type { RunRow, WorkerLoadBar } from '../types';
 import { CardEmpty, CardError, CardSkeleton } from '../components/CardStates';
 
 interface Stat {
@@ -17,7 +17,7 @@ interface Bar {
 export function Overview(props: {
   stats: Stat[];
   bars: Bar[];
-  topWorkers: WorkerCard[];
+  topWorkers: WorkerLoadBar[];
   recentRuns: RunRow[];
   workersOnline: number;
   loading: boolean;

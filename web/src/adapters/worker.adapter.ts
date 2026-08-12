@@ -1,6 +1,7 @@
 import type { WorkerSummary } from '@flowforge/shared';
 import type { WorkerCard } from '../types.ts';
 import { formatRelativeToNow } from './format.ts';
+import { WORKER_STATUS_TAG_CLASS } from './tags.ts';
 
 function regionFromHostname(hostname: string): string {
   const [region] = hostname.split('-');
@@ -19,6 +20,8 @@ export function toWorkerCard(worker: WorkerSummary): WorkerCard {
     fill: saturated ? 'var(--color-accent)' : 'var(--color-accent-2-500)',
     state: saturated ? 'saturated' : 'ready',
     tagClass: saturated ? 'tag-accent' : 'tag-accent-2',
+    status: worker.status,
+    statusTagClass: WORKER_STATUS_TAG_CLASS[worker.status],
     meta: `${regionFromHostname(worker.hostname)} · heartbeat ${formatRelativeToNow(worker.lastHeartbeatAt)}`,
   };
 }
